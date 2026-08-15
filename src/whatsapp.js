@@ -6,21 +6,11 @@ import {
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
-import db from './db.js';
+import { insertMsg, markRead } from './db.js';
 
 // where the login session is saved -> MUST persist this folder on deploy
 // (mount it as a volume, otherwise every restart = re-scan QR)
 const AUTH_FOLDER = 'auth_session';
-
-const insertMsg = db.prepare(`
-  INSERT OR IGNORE INTO messages
-  (id, chat_id, chat_name, sender_name, sender_id, is_group, text, timestamp, is_read)
-  VALUES (@id, @chat_id, @chat_name, @sender_name, @sender_id, @is_group, @text, @timestamp, @is_read)
-`);
-
-const markRead = db.prepare(`
-  UPDATE messages SET is_read = 1 WHERE chat_id = ? AND is_read = 0
-`);
 
 export async function startWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
@@ -83,7 +73,7 @@ export async function startWhatsApp() {
 
       const chatName = await getChatName(chatId, isGroup);
 
-      insertMsg.run({
+      insertMsg({
         id: msg.key.id,
         chat_id: chatId,
         chat_name: chatName,
@@ -101,7 +91,7 @@ export async function startWhatsApp() {
   sock.ev.on('message-receipt.update', (updates) => {
     for (const u of updates) {
       if (u.receipt?.readTimestamp) {
-        markRead.run(u.key.remoteJid);
+        markRead(u.key.remoteJid);
       }
     }
   });
@@ -110,7 +100,7 @@ export async function startWhatsApp() {
   sock.ev.on('chats.update', (updates) => {
     for (const u of updates) {
       if (u.unreadCount === 0 && u.id) {
-        markRead.run(u.id);
+        markRead(u.id);
       }
     }
   });
