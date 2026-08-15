@@ -69,4 +69,18 @@ export function markIncludedInDigest(ids) {
   db.write();
 }
 
+export function applyClassification(results) {
+  // results: [{ id, priority, is_spam, summary }]
+  const byId = new Map(results.map((r) => [r.id, r]));
+  for (const m of db.data.messages) {
+    const r = byId.get(m.id);
+    if (r) {
+      m.priority = r.priority;
+      m.is_spam = r.is_spam;
+      m.summary = r.summary || null;
+    }
+  }
+  db.write();
+}
+
 export default db;

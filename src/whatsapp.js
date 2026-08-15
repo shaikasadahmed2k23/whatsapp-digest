@@ -64,6 +64,12 @@ export async function startWhatsApp() {
       if (!msg.message || msg.key.fromMe) continue; // skip her own sent msgs
 
       const chatId = msg.key.remoteJid;
+
+      // skip WhatsApp Channels/newsletters and Status updates - not real chats
+      if (chatId.endsWith('@newsletter') || chatId === 'status@broadcast') {
+        continue;
+      }
+
       const isGroup = chatId.endsWith('@g.us');
       const text =
         msg.message.conversation ||
@@ -72,6 +78,8 @@ export async function startWhatsApp() {
         '[media/unsupported message]';
 
       const chatName = await getChatName(chatId, isGroup);
+
+      console.log(`📩 New message | ${chatName} | ${msg.pushName}: ${text}`);
 
       insertMsg({
         id: msg.key.id,
