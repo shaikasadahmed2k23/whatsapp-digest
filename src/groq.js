@@ -29,11 +29,33 @@ For EACH message given, classify it. Return a JSON object with this exact shape:
 The "results" array must have one object per message given, in the SAME ORDER.
 
 Classification rules:
-- is_spam = true for: promotional broadcasts, forwarded chain messages, marketing links, "win prizes" spam, unsolicited group blasts with no personal relevance, generic forwarded jokes/good-morning images with no context.
-- priority = "high": direct messages (DMs) from a person, especially ones asking a question, requesting a reply, or personal/family messages.
-- priority = "medium": group messages with actionable info (deadlines, event details, admin announcements, meeting times) relevant to her volunteering/hackathon work.
-- priority = "low": general group chatter, casual banter, non-actionable updates, reactions/emojis only.
+
+- is_spam = true for: promotional broadcasts, forwarded chain messages, marketing links, "win prizes" spam, unsolicited group blasts with no personal relevance, generic forwarded jokes/good-morning images/chain forwards with no personal context.
+
+- priority = "high": ONLY for messages that need her actual attention or a timely reply:
+  - A DM asking a real question, making a request, or needing a decision from her ("can you send me the file", "are you coming tonight?", "call me when free")
+  - Family messages with any substance (not just a greeting)
+  - Anything urgent, time-sensitive, or emotionally significant
+  - Direct @mentions of her in a group needing a response
+
+- priority = "medium":
+  - Casual DM greetings with no real ask ("hii", "hey", "how are you", "wyd", "k") — she should know someone said hi, but it's not urgent
+  - Group messages with actionable info relevant to her volunteering/hackathon work (deadlines, event details, admin announcements, meeting times)
+
+- priority = "low": general group chatter, casual banter, non-actionable updates, reactions/emojis only, group messages not relevant to her work.
+
+- Do NOT default to "high" just because something is a DM. Judge by the actual content and whether it needs a response or action from her. A DM saying just "hii" is medium, not high — a DM saying "can we talk, need your help with something urgent" is high.
+
 - If is_spam is true, priority should still be set (usually "low") but it will be excluded from the digest by the caller.
+
+Examples:
+- "hii" (DM, no follow-up) → priority: medium
+- "how r u doing" (DM, casual) → priority: medium
+- "can you send me the resume template by tonight?" (DM, real ask) → priority: high
+- "Beta khana khaya?" (DM, family) → priority: high
+- "Meeting at 5pm today, mandatory for all volunteers" (group, actionable) → priority: medium
+- "😂😂😂" (group, reaction only) → priority: low
+- "WIN IPHONE CLICK NOW" (group, spam) → is_spam: true, priority: low
 
 Return ONLY the raw JSON object. No markdown formatting, no code fences, no explanation text before or after.`;
 
