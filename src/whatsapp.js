@@ -12,6 +12,44 @@ import { insertMsg, markRead } from './db.js';
 // (mount it as a volume, otherwise every restart = re-scan QR)
 const AUTH_FOLDER = 'auth_session';
 
+// Extracts readable text from any WhatsApp message type.
+// Captions are included where present; media without caption gets a clear label.
+function extractMessageText(message) {
+  if (!message) return '[unknown message]';
+
+  if (message.conversation) return message.conversation;
+  if (message.extendedTextMessage?.text) return message.extendedTextMessage.text;
+
+  if (message.imageMessage) {
+    return message.imageMessage.caption
+      ? `📷 Photo: ${message.imageMessage.caption}`
+      : '📷 Sent a photo';
+  }
+  if (message.videoMessage) {
+    return message.videoMessage.caption
+      ? `🎥 Video: ${message.videoMessage.caption}`
+      : '🎥 Sent a video';
+  }
+  if (message.audioMessage) {
+    return message.audioMessage.ptt ? '🎤 Sent a voice note' : '🎵 Sent an audio file';
+  }
+  if (message.stickerMessage) return '🩹 Sent a sticker';
+  if (message.documentMessage) {
+    const name = message.documentMessage.fileName || 'a file';
+    return `📄 Sent a document: ${name}`;
+  }
+  if (message.locationMessage) return '📍 Shared a location';
+  if (message.contactMessage) return `👤 Shared a contact: ${message.contactMessage.displayName || ''}`;
+  if (message.pollCreationMessage || message.pollCreationMessageV3) {
+    const poll = message.pollCreationMessage || message.pollCreationMessageV3;
+    return `📊 Created a poll: ${poll.name || ''}`;
+  }
+  if (message.reactionMessage) return `Reacted ${message.reactionMessage.text || ''}`;
+  if (message.viewOnceMessage || message.viewOnceMessageV2) return '👁️ Sent a view-once message';
+
+  return '[unsupported message type]';
+}
+
 export async function startWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
 
@@ -71,11 +109,7 @@ export async function startWhatsApp() {
       }
 
       const isGroup = chatId.endsWith('@g.us');
-      const text =
-        msg.message.conversation ||
-        msg.message.extendedTextMessage?.text ||
-        msg.message.imageMessage?.caption ||
-        '[media/unsupported message]';
+      const text = extractMessageText(msg.message);
 
       const chatName = await getChatName(chatId, isGroup);
 
