@@ -104,6 +104,63 @@ export async function classifyMessages(messages) {
   return allResults;
 }
 
+const CHAT_SUMMARY_SYSTEM_PROMPT = `You summarize WhatsApp activity for a busy person who doesn't have time to read every message. You will be given messages grouped by chat (a group chat or a DM). For EACH chat, write ONE short summary (1-2 sentences, under 30 words) capturing what actually happened or what's being discussed - not a list, a natural summary. Mention anything needing a response or action if relevant.
+
+Return a JSON object with this exact shape:
+{
+  "results": [
+    { "chat_name": "<exact chat name as given>", "summary": "<1-2 sentence summary>" }
+  ]
+}
+
+Return ONLY the raw JSON object. No markdown, no code fences, no explanation.`;
+
+export async function summarizeChats(chatGroups) {
+  // chatGroups: [{ chat_name, messages: [{sender_name, text}, ...] }, ...]
+  if (chatGroups.length === 0) return [];
+
+  const batches = chunk(chatGroups, 15);
+  const allResults = [];
+
+  for (const batch of batches) {
+    const userContent = batch
+      .map((g) => {
+        const lines = g.messages
+          .map((m) => `${m.sender_name}: ${m.summary || m.text}`)
+          .join('\n');
+        return `chat_name: ${g.chat_name}\nmessages:\n${lines}`;
+      })
+      .join('\n---\n');
+
+    try {
+      const completion = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: CHAT_SUMMARY_SYSTEM_PROMPT },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+      });
+
+      const raw = completion.choices[0]?.message?.content || '{}';
+      const parsed = parseGroqJson(raw);
+      allResults.push(...parsed);
+    } catch (err) {
+      console.error('⚠️ Groq chat-summary failed for a batch:', err.message);
+      // fail-safe: fall back to a generic summary so the chat isn't silently dropped
+      for (const g of batch) {
+        allResults.push({
+          chat_name: g.chat_name,
+          summary: `${g.messages.length} new message(s) - view on WhatsApp for details.`,
+        });
+      }
+    }
+  }
+
+  return allResults;
+}
+
 // Groq with response_format json_object sometimes wraps the array in a key,
 // or occasionally still adds stray text - handle both cases defensively.
 function parseGroqJson(raw) {

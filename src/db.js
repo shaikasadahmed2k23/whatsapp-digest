@@ -1,10 +1,9 @@
 import { Low } from 'lowdb';
 import { JSONFile } from 'lowdb/node';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { DATA_DIR } from './config.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, '..', 'digest.json');
+const dbPath = path.join(DATA_DIR, 'digest.json');
 
 const adapter = new JSONFile(dbPath);
 const defaultData = { messages: [] };

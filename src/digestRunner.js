@@ -5,6 +5,7 @@ import {
 } from './db.js';
 import { classifyMessages } from './groq.js';
 import { buildDigest, digestToHtml, digestToText } from './digest.js';
+import { buildChatSummaryDigest, chatSummaryToHtml, chatSummaryToText } from './chatSummary.js';
 import { sendDigestEmail } from './mailer.js';
 
 const SIX_HOURS_SECONDS = 6 * 60 * 60;
@@ -43,6 +44,15 @@ export async function runDigestCycle() {
     text: digestToText(digest),
   });
 
+  // second email: compact per-chat overview (chat name + short summary),
+  // so it can be scanned fast without reading every message
+  const chatSummaryDigest = await buildChatSummaryDigest(classifiedMessages, windowLabel);
+  await sendDigestEmail({
+    subject: `🗂️ Chat Overview — ${windowLabel}`,
+    html: chatSummaryToHtml(chatSummaryDigest),
+    text: chatSummaryToText(chatSummaryDigest),
+  });
+
   markIncludedInDigest(messages.map((m) => m.id));
-  console.log('✅ Digest cycle complete.');
+  console.log('✅ Digest cycle complete (2 emails sent).');
 }

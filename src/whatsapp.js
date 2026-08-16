@@ -7,10 +7,12 @@ import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
 import { insertMsg, markRead } from './db.js';
+import path from 'path';
+import { DATA_DIR } from './config.js';
 
-// where the login session is saved -> MUST persist this folder on deploy
-// (mount it as a volume, otherwise every restart = re-scan QR)
-const AUTH_FOLDER = 'auth_session';
+// where the login session is saved -> lives inside DATA_DIR so it
+// persists correctly on the mounted volume (see config.js for why)
+const AUTH_FOLDER = path.join(DATA_DIR, 'auth_session');
 
 // Extracts readable text from any WhatsApp message type.
 // Captions are included where present; media without caption gets a clear label.
@@ -63,7 +65,10 @@ export async function startWhatsApp() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log('\n📱 Scan this QR with WhatsApp > Linked Devices:\n');
+      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qr)}`;
+      console.log('\n📱 Open this link in your browser to see a scannable QR code:');
+      console.log(qrImageUrl);
+      console.log('\n(Also printing ASCII version below, in case the link works but this is easier for some setups)\n');
       qrcode.generate(qr, { small: true });
     }
 
